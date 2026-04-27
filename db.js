@@ -92,6 +92,19 @@ class Customer {
 				};
       };
   }
+
+  listData = (customerData) => {
+    const request = indexedDB.open(this.dbName, 1);
+    request.onsucess = (event) => {
+      const db = event.target.result;
+      const txn = db.transaction('customers', 'readonly');
+      const store = txn.objectStore('customers');
+      const response = store.getAll();
+      console.log(response);
+ 
+		}
+	}
+
 }
 
 // Web page event handlers
@@ -143,4 +156,12 @@ export const loadDB = () => {
 				newCustomEvent(`An erorr occurred while trying to create data: ${e.message || e}`, "error")
 				throw new Error(`Error: ${e.message || e}`);
 	}
+}
+
+export const getAll = () => {
+   console.log('Fetching all data...');
+   try {
+			let customer = new Customer(DBNAME);
+      customer.listData;
+	 }
 }
