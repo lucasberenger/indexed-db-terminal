@@ -6,29 +6,30 @@ const load = document.getElementById("loadBtn");
 const terminal = document.getElementById("terminalOutput");
 
 const renderLog = (msg, type) => {
-				if (!terminal) return;
+	if (!terminal) return;
 
-				const entry = document.createElement('div');
-				entry.className = 'log-entry';
+	const entry = document.createElement('div');
+	entry.className = 'log-entry';
 
-				const typeClass = type === 'success' ? 'log-success' :
-												  type === 'error'   ? 'log-error'   :
-												  type === 'info'    ? 'log-info'    : '';
-				const time = new Date().toLocaleTimeString();
+	const typeClass = type === 'success' ? 'log-success' :
+					  type === 'error'   ? 'log-error'   :
+					  type === 'info'    ? 'log-info'    : '';
+					  
+	const time = new Date().toLocaleTimeString();
 
-				entry.innerHTML = `
-				  <span class="log-time">[${time}]</span>
-					<span class="${typeClass}">${msg}</span>
-				`;
+	entry.innerHTML = `
+		<span class="log-time">[${time}]</span>
+		<span class="${typeClass}">${msg}</span>
+	`;
 
-				terminal.appendChild(entry);
+	terminal.appendChild(entry);
 
-				terminal.scrollTop = terminal.scrollHeight;
+	terminal.scrollTop = terminal.scrollHeight;
 }
 
 window.addEventListener('app-log', (event) => {
-				const { msg, type } = event.detail;
-				renderLog(msg, type);
+	const { msg, type } = event.detail;
+	renderLog(msg, type);
 });
 
 if (load) { load.addEventListener('click', loadDB); }

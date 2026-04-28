@@ -1,6 +1,7 @@
 class Customer {
   constructor(dbName) {
     this.dbName = dbName;
+    this.dbConnection = null;
     if (!window.indexedDB) {
       window.alert("Your browser doesn't support a stable version of IndexedDB. \
         Such and such feature will not be available.");
@@ -12,14 +13,12 @@ class Customer {
    * @memberof Customer
    */
   removeAllRows = () => {
-
-    const request = indexedDB.open(this.dbName, 1);
+    const request = indexedDB.open(this.dbName, 2);
 
     request.onerror = (event) => {
       console.log('removeAllRows - Database error: ', event.target.error.code,
         " - ", event.target.error.message);
     };
-
 
     request.onsuccess = (event) => {
       console.log('Deleting all customers...');
@@ -50,60 +49,64 @@ class Customer {
    * @memberof Customer
    */
   initialLoad = (customerData) => {
-    const request = indexedDB.open(this.dbName, 1);
+    if (!this.dbConnection) {
+        const request = indexedDB.open(this.dbName, 1);
+        
+        request.onerror = (event) => {
+            newCustomEvent(`Error trying to initiate the database: ${event.target.error.message}`, 'error');
+        };
+
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains('customers')) {
+                const objectStore = db.createObjectStore('customers', { keyPath: 'userid' });
+                objectStore.createIndex('name', 'name', { unique: false });
+                objectStore.createIndex('email', 'email', { unique: false });
+            }
+        }
+
+        request.onsuccess = (event) => {
+           this.dbConnection = event.target.result;
+           const txn = this.dbConnection.transaction(['customers'], 'readwrite');
+           const store = txn.objectStore('customers');
+           customerData.forEach(customer => {
+               store.put(customer);
+           })
+           txn.oncomplete = () => {
+               newCustomEvent('Database successfully created!', 'success');
+           }
+        }
+    } else {
+        newCustomEvent('Database connection already opened.');
+    }
+  }
+
+  listData = () => {
+    const request = indexedDB.open(this.dbName, 2);
 
     request.onerror = (event) => {
-      console.log('initialLoad - Database error: ', event.target.error.code,
-        " - ", event.target.error.message);
-    };
-
-    request.onupgradeneeded = (event) => {
-      console.log('Populating customers...');
-      const db = event.target.result;
-
-      if (!db.objectStoreNames.contains('customers')) {
-				const objectStore = db.createObjectStore('customers', { keyPath: 'userid' });
-				objectStore.onerror = (event) => {
-								console.log('initialLoad - objectStore error: ', event.target.error.code,
-									" - ", event.target.error.message);
-				 }
-				// Create an index to search customers by name and email
-				objectStore.createIndex('name', 'name', { unique: false });
-				objectStore.createIndex('email', 'email', { unique: true });
-       };
+      newCustomEvent(`Error opening DB: ${event.target.error.message}`, 'error');
     };
 
     request.onsuccess = (event) => {
-				// Populate the database with the initial set of rows
-				console.log('Populating costumers...');
-				const db = event.target.result;
-
-				// Create read and write transactions
-				const txn = db.transaction('customers', 'readwrite');
-				const store = txn.objectStore('customers');
-				// Store data	
-				customerData.forEach(function(customer) {
-								store.put(customer);
-				});
-
-				txn.oncomplete = () => {
-				  console.log('Data created.');	
-				  db.close();
-				};
-      };
-  }
-
-  listData = (customerData) => {
-    const request = indexedDB.open(this.dbName, 1);
-    request.onsucess = (event) => {
       const db = event.target.result;
       const txn = db.transaction('customers', 'readonly');
       const store = txn.objectStore('customers');
-      const response = store.getAll();
-      console.log(response);
- 
-		}
+      const query = store.getAll();
+      
+      query.onsuccess = (event) => {
+        const data = event.target.result;
+        if (data.length === 0) {
+          newCustomEvent('Database is empty');
+        } else {
+          newCustomEvent(`Found ${data.length} records.`, 'success');
+          data.forEach(customer => {
+            newCustomEvent(`ID: ${customer.userid} | Name: ${customer.name} | E-mail: ${customer.email}`)
+          })
+        };
+      };
 	}
+   }
 
 }
 
@@ -115,8 +118,8 @@ const DBNAME = 'customer_db';
  * Function to create custom events dynamically
  */
 const newCustomEvent = (msg, type = 'info') => {
-				if (!msg) throw new Error('No message has been received.');
-				return window.dispatchEvent(new CustomEvent('app-log', { detail: { msg, type } }));
+    if (!msg) throw new Error('No message has been received.');
+    return window.dispatchEvent(new CustomEvent('app-log', { detail: { msg, type } }));
 }
 
 /**
@@ -124,44 +127,25 @@ const newCustomEvent = (msg, type = 'info') => {
  */
 
 export const clearDB = () => {
-  console.log('Clear');
-  try {
-        newCustomEvent('Trying to remove all rows...');
-				let customer = new Customer(DBNAME);
-				customer.removeAllRows();
-				newCustomEvent('All rows removed!', 'success');	
-
-	} catch (e) {
-				newCustomEvent(`Error while trying to remove all rows: ${e.message || e}`, 'error');
-				throw new Error(`Error: ${e}`);
-	}
+    newCustomEvent('Trying to remove all rows...');
+    let customer = new Customer(DBNAME);
+    customer.removeAllRows();
 }
 
 /**
  * Add customer data to the database
  */
 export const loadDB = () => {
-  console.log('Load the Customers database');
-  try {
-				newCustomEvent('Loading data...');
-				const customerData = [
-						{ userid: '444', name: 'Bill', email: 'bill@company.com' },
-
-						{ userid: '555', name: 'Donna', email: 'donna@home.org' }
-				];
-				let customer = new Customer(DBNAME);
-				customer.initialLoad(customerData);
-				newCustomEvent('Data successfully created!', 'success');
-  } catch (e) {
-				newCustomEvent(`An erorr occurred while trying to create data: ${e.message || e}`, "error")
-				throw new Error(`Error: ${e.message || e}`);
-	}
+    newCustomEvent('Loading data...');
+    const customerData = [
+        { userid: '444', name: 'Bill', email: 'bill@company.com' },
+        { userid: '555', name: 'Donna', email: 'donna@home.org' }
+    ];
+    let customer = new Customer(DBNAME);
+    customer.initialLoad(customerData);
 }
 
 export const getAll = () => {
-   console.log('Fetching all data...');
-   try {
-			let customer = new Customer(DBNAME);
-      customer.listData;
-	 }
+  let customer = new Customer(DBNAME);
+  customer.listData();
 }
