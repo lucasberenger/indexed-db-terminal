@@ -8,78 +8,69 @@ class Customer {
     }
   }
 
-  /**
-   * Remove all rows from the database
-   * @memberof Customer
-   */
-  removeAllRows = () => {
-    const request = indexedDB.open(this.dbName, 2);
+  insertData = (customerData) => {
+    const db = this.dbConnection;
+    const txn = db.transaction(['customers'], 'readwrite');
+    const store = txn.objectStore('customers');
 
-    request.onerror = (event) => {
-      console.log('removeAllRows - Database error: ', event.target.error.code,
-        " - ", event.target.error.message);
+    customerData.forEach(customer => {
+       const request = store.put(customer);
+
+       request.onerror = (event) => {
+         newCustomEvent(`Error while trying to insert data: ${event.target.error.message}`);
+       };
+    });
+
+    txn.oncomplete = () => {
+        newCustomEvent('Database successfully created!', 'success');
     };
+  }
+
+  removeAllRows = () => {
+    const request = indexedDB.open(this.dbName, 1);
 
     request.onsuccess = (event) => {
-      console.log('Deleting all customers...');
       const db = event.target.result;
       const txn = db.transaction('customers', 'readwrite');
-      txn.onerror = (event) => {
-        console.log('removeAllRows - Txn error: ', event.target.error.code,
-          " - ", event.target.error.message);
-
-      };
-      txn.oncomplete = (event) => {
-        console.log('All rows removed!');
-      };
       const objectStore = txn.objectStore('customers');
+      const response = objectStore.clear();
+      
+      response.onsuccess = () => {
+          newCustomEvent('All records from database has been removed.', 'success');
+      };
+      
+      response.onerror = (event) => {
+          newCustomEvent(`An error occurred while trying to clear database: ${event.target.error.message}`, 'error');
+      };
 
-      const getAllKeysRequest = objectStore.getAllKeys();
-      getAllKeysRequest.onsuccess = (event) => {
-        getAllKeysRequest.result.forEach(key => {
-          objectStore.delete(key);
-        });
       }
     }
   }
 
-  /**
-   * Populate the Customer database with an initial set of customer data
-   * @param {[object]} customerData Data to add
-   * @memberof Customer
-   */
   initialLoad = (customerData) => {
-    if (!this.dbConnection) {
-        const request = indexedDB.open(this.dbName, 1);
-        
-        request.onerror = (event) => {
-            newCustomEvent(`Error trying to initiate the database: ${event.target.error.message}`, 'error');
-        };
+      if (this.dbConnection) {
+          newCustomEvent('Database connected already');
+          return;
+      }
+      
+      const request = indexedDB.open(this.dbName, 1);
+      request.onerror = (event) => {
+          newCustomEvent(`Error: ${event.target.error.message}`, 'error');
+      };
 
-        request.onupgradeneeded = (event) => {
-            const db = event.target.result;
-            if (!db.objectStoreNames.contains('customers')) {
-                const objectStore = db.createObjectStore('customers', { keyPath: 'userid' });
-                objectStore.createIndex('name', 'name', { unique: false });
-                objectStore.createIndex('email', 'email', { unique: false });
-            }
-        }
+      request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains('customers')) {
+              const store = db.createObjectStore('customers', { keyPath: 'userid' });
+              store.createIndex('name', 'name', { unique: false });
+              store.createIndex('email', 'email', { unique: false });
+          }
+      };
 
-        request.onsuccess = (event) => {
-           this.dbConnection = event.target.result;
-           const txn = this.dbConnection.transaction(['customers'], 'readwrite');
-           const store = txn.objectStore('customers');
-           customerData.forEach(customer => {
-               store.put(customer);
-           })
-           txn.oncomplete = () => {
-               newCustomEvent('Database successfully created!', 'success');
-           }
-        }
-    } else {
-        newCustomEvent('Database connection already opened.');
-    }
-  }
+      request.onsuccess = () => {
+         insertData(customerData); 
+      };
+   }
 
   listData = () => {
     const request = indexedDB.open(this.dbName, 2);
@@ -106,8 +97,6 @@ class Customer {
         };
       };
 	}
-   }
-
 }
 
 // Web page event handlers
@@ -127,7 +116,6 @@ const newCustomEvent = (msg, type = 'info') => {
  */
 
 export const clearDB = () => {
-    newCustomEvent('Trying to remove all rows...');
     let customer = new Customer(DBNAME);
     customer.removeAllRows();
 }
@@ -138,8 +126,8 @@ export const clearDB = () => {
 export const loadDB = () => {
     newCustomEvent('Loading data...');
     const customerData = [
-        { userid: '444', name: 'Bill', email: 'bill@company.com' },
-        { userid: '555', name: 'Donna', email: 'donna@home.org' }
+        { userid: '444', name: 'lucas', email: 'lucas@company.com' },
+        { userid: '555', name: 'Victoria', email: 'vic@home.org' }
     ];
     let customer = new Customer(DBNAME);
     customer.initialLoad(customerData);
