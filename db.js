@@ -2,6 +2,7 @@ class Customer {
   constructor(dbName) {
     this.dbName = dbName;
     this.dbConnection = null;
+    this.isOpening = false;
     if (!window.indexedDB) {
       window.alert("Your browser doesn't support a stable version of IndexedDB. \
         Such and such feature will not be available.");
@@ -27,6 +28,7 @@ class Customer {
   }
 
   removeAllRows = () => {
+    this.isOpening = true;
     const request = indexedDB.open(this.dbName, 1);
 
     request.onsuccess = (event) => {
@@ -36,10 +38,12 @@ class Customer {
       const response = objectStore.clear();
       
       response.onsuccess = () => {
+          this.isOpening = false;
           newCustomEvent('All records from database has been removed.', 'success');
       };
       
       response.onerror = (event) => {
+          this.isOpening = false;
           newCustomEvent(`An error occurred while trying to clear database: ${event.target.error.message}`, 'error');
       };
 
@@ -48,13 +52,14 @@ class Customer {
   }
 
   initialLoad = (customerData) => {
-      if (this.dbConnection) {
-          newCustomEvent('Database connected already');
+      if (this.dbConnection || this.isOpening) {
+          newCustomEvent('Database connected already or opening');
           return;
       }
-      
+      this.isOpening = true; 
       const request = indexedDB.open(this.dbName, 1);
       request.onerror = (event) => {
+          this.isOpening = false;
           newCustomEvent(`Error: ${event.target.error.message}`, 'error');
       };
 
@@ -67,15 +72,19 @@ class Customer {
           }
       };
 
-      request.onsuccess = () => {
-         insertData(customerData); 
+      request.onsuccess = (event) => {
+         this.dbConnection = event.target.result;
+         this.isOpening = false;
+         this.insertData(customerData); 
       };
    }
 
   listData = () => {
+    this.isOpening = true;
     const request = indexedDB.open(this.dbName, 2);
 
     request.onerror = (event) => {
+      this.isOpening = false;
       newCustomEvent(`Error opening DB: ${event.target.error.message}`, 'error');
     };
 
@@ -95,6 +104,7 @@ class Customer {
             newCustomEvent(`ID: ${customer.userid} | Name: ${customer.name} | E-mail: ${customer.email}`)
           })
         };
+        this.isOpening = false;
       };
 	}
 }
