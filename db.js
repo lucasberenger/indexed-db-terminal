@@ -60,7 +60,8 @@ class Customer {
       const request = indexedDB.open(this.dbName, 1);
       request.onerror = (event) => {
           this.isOpening = false;
-          newCustomEvent(`Error: ${event.target.error.message}`, 'error');
+          const error = event.target?.error?.message || 'Uknown error';
+          newCustomEvent(`Error: ${error}`, 'error');
       };
 
       request.onupgradeneeded = (event) => {
@@ -85,7 +86,8 @@ class Customer {
 
     request.onerror = (event) => {
       this.isOpening = false;
-      newCustomEvent(`Error opening DB: ${event.target.error.message}`, 'error');
+      const error = event.target?.error?.message || 'Uknown error';
+      newCustomEvent(`Error opening DB: ${error}`, 'error');
     };
 
     request.onsuccess = (event) => {
